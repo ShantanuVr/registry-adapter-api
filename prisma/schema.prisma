@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Receipt {
+  id              String      @id @default(cuid())
+  type            ReceiptType
+  classId         String?
+  projectId       String?
+  orgId           String?
+  quantity        Int?
+  factorRef       String?
+  paramsJson      Json        // full request payload (minus secrets)
+  txHash          String?
+  blockNumber     Int?
+  onchainHash     String?     // if returned/derived
+  status          TxStatus    @default(PENDING)
+  errorCode       String?
+  errorMessage    String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  idempotencyKey  String?     @unique
+
+  @@map("receipts")
+}
+
+enum ReceiptType {
+  MINT
+  RETIRE
+  ANCHOR
+  TRANSFER
+}
+
+enum TxStatus {
+  PENDING
+  MINED
+  FAILED
+}
+
+model ClassMap {
+  id           String    @id @default(cuid())
+  projectId    String
+  vintageStart DateTime
+  vintageEnd   DateTime
+  classId      String    @unique
+  createdAt    DateTime  @default(now())
+
+  @@map("class_maps")
+}
+
+model Idempotency {
+  key        String    @id
+  method     String
+  path       String
+  bodyHash   String
+  orgId      String?
+  receiptId  String?
+  createdAt  DateTime  @default(now())
+
+  @@map("idempotency")
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  actorSub    String?
+  actorOrgId  String?
+  actorRole   String?
+  action      String   // "MINT_REQUEST", "RETIRE_REQUEST", "ANCHOR_DIGEST", etc.
+  entityType  String   // "CLASS","PROJECT","RECEIPT"
+  entityId    String?
+  beforeJson  Json?
+  afterJson   Json?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@map("audit_events")
+}

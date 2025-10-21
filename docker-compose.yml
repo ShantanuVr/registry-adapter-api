@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: registry-adapter-postgres
+    environment:
+      POSTGRES_DB: registry_adapter
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Registry Adapter API
+  registry-adapter-api:
+    build: .
+    container_name: registry-adapter-api
+    environment:
+      NODE_ENV: development
+      PORT: 4100
+      DATABASE_URL: "postgresql://postgres:password@postgres:5432/registry_adapter?schema=public"
+      JWT_JWKS_URL: "http://localhost:3000/.well-known/jwks.json"
+      JWT_ISSUER: "https://registry.example.com"
+      CHAIN_RPC_URL: "http://localhost:8545"
+      CHAIN_ID: 31337
+      SIGNER_PRIV: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+      TOKENS_CREDIT1155_ADDR: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+      EVIDENCE_ANCHOR_ADDR: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+      REGISTRY_URL: "http://localhost:3000"
+      EVIDENCE_LOCKER_URL: "http://localhost:3001"
+      IOT_ORACLE_URL: "http://localhost:3002"
+      ENABLE_REGISTRY_CALLBACK: false
+      READONLY_MODE: false
+      MOCK_CHAIN: false
+      MOCK_LOCKER: false
+      MOCK_ORACLE: false
+      CONFIRMATIONS: 1
+      IDEMPOTENCY_TTL_HOURS: 24
+      MAX_QUANTITY_PER_ISSUANCE: 1000000
+      CORS_ORIGIN: "http://localhost:3000"
+      RATE_LIMIT_MAX: 100
+      RATE_LIMIT_TIME_WINDOW: 60000
+      LOG_LEVEL: "info"
+      LOG_PRETTY: true
+    ports:
+      - "4100:4100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 5 &&
+        pnpm db:migrate &&
+        pnpm db:seed &&
+        pnpm dev
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4100/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Mock Registry Simulator (for demo)
+  registry-simulator:
+    image: node:20-alpine
+    container_name: registry-simulator
+    working_dir: /app
+    environment:
+      PORT: 3000
+      JWT_SECRET: "demo-secret-key"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./scripts/mock-registry.js:/app/index.js
+    command: >
+      sh -c "
+        npm init -y &&
+        npm install express jsonwebtoken &&
+        node index.js
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Mock Evidence Locker (for demo)
+  evidence-locker:
+    image: node:20-alpine
+    container_name: evidence-locker
+    working_dir: /app
+    environment:
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./scripts/mock-locker.js:/app/index.js
+    command: >
+      sh -c "
+        npm init -y &&
+        npm install express &&
+        node index.js
+      "
+
+  # Mock IoT Oracle (for demo)
+  iot-oracle:
+    image: node:20-alpine
+    container_name: iot-oracle
+    working_dir: /app
+    environment:
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./scripts/mock-oracle.js:/app/index.js
+    command: >
+      sh -c "
+        npm init -y &&
+        npm install express &&
+        node index.js
+      "
+
+volumes:
+  postgres_data:
