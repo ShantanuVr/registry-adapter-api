@@ -6,12 +6,12 @@ import { AuthContext } from '../auth/index.js';
 import { getChainProvider, sendTransaction, getBalance } from '../../lib/ethers.js';
 import { 
   createCarbonCreditContract, 
-  encodeRetirementData, 
   hashPurpose, 
   hashBeneficiary,
   RetirementData 
 } from '../../lib/contracts.js';
 import logger from '../../lib/logger.js';
+import { appConfig } from '../../lib/config.js';
 
 export const retireCredits = async (
   request: RetireRequestSchema,
@@ -44,11 +44,17 @@ export const retireCredits = async (
       );
     }
 
-    // Prepare retirement data
-    const retirementData: RetirementData = {
+    // Resolve classId to get the numeric value
+    const classIdNum = parseInt(request.classId);
+    
+    // Prepare retirement data struct for contract call
+    const retirementStruct: RetirementData = {
       purposeHash: request.purposeHash,
       beneficiaryHash: request.beneficiaryHash,
-      offchainRef: request.offchainRef,
+      certificateHash: ethers.ZeroHash, // Optional, can be set if available
+      offchainRef: request.offchainRef || '',
+      originClassId: ethers.zeroPadValue(ethers.toUtf8Bytes(request.classId), 32),
+      registryURI: `${appConfig.REGISTRY_URL}/retirements/${traceId}`,
     };
 
     // Create receipt record
@@ -79,12 +85,15 @@ export const retireCredits = async (
       const { provider, signer } = getChainProvider();
       const contract = createCarbonCreditContract(provider);
       
-      const encodedData = encodeRetirementData(retirementData);
+      // Get the holder address (the one who owns the tokens)
+      const holderAddress = request.holder;
       
+      // Call with correct parameter order and struct
       const tx = await contract.retire.populateTransaction(
-        request.classId,
-        request.quantity,
-        encodedData
+        classIdNum,        // classId FIRST
+        holderAddress,     // from address SECOND
+        request.quantity,  // amount
+        retirementStruct   // Struct with all 6 fields
       );
 
       const result = await sendTransaction(tx);
