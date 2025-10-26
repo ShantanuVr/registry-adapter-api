@@ -36,6 +36,8 @@ export const IssuanceFinalizeRequestSchema = z.object({
 });
 
 export const IssuanceFinalizeResponseSchema = z.object({
+  domain: z.literal('credit'),
+  sourceOfRecord: z.literal('registry'),
   adapterTxId: CuidSchema,
   classId: z.string(),
   quantity: z.number(),
@@ -59,6 +61,8 @@ export const RetireRequestSchema = z.object({
 });
 
 export const RetireResponseSchema = z.object({
+  domain: z.literal('credit'),
+  sourceOfRecord: z.literal('registry'),
   adapterTxId: CuidSchema,
   classId: z.string(),
   quantity: z.number(),
@@ -90,6 +94,98 @@ export const AnchorResponseSchema = z.object({
 
 export type AnchorRequest = z.infer<typeof AnchorRequestSchema>;
 export type AnchorResponse = z.infer<typeof AnchorResponseSchema>;
+
+// Token domain schemas
+export const TokenMintRequestSchema = z.object({
+  classId: z.string().min(1),
+  to: AddressSchema,
+  quantity: z.number().int().positive(),
+  chainId: z.string().min(1),
+  contractAddress: AddressSchema,
+  tokenId: z.string().optional(),
+});
+
+export const TokenMintResponseSchema = z.object({
+  domain: z.literal('token'),
+  sourceOfRecord: z.literal('chain'),
+  adapterTxId: CuidSchema,
+  classId: z.string(),
+  quantity: z.number(),
+  txHash: z.string(),
+  blockNumber: z.number(),
+  onchainHash: z.string(),
+  receiptUrl: z.string(),
+});
+
+export const TokenBurnRequestSchema = z.object({
+  classId: z.string().min(1),
+  from: AddressSchema,
+  quantity: z.number().int().positive(),
+  chainId: z.string().min(1),
+  contractAddress: AddressSchema,
+  tokenId: z.string().optional(),
+});
+
+export const TokenBurnResponseSchema = z.object({
+  domain: z.literal('token'),
+  sourceOfRecord: z.literal('chain'),
+  adapterTxId: CuidSchema,
+  classId: z.string(),
+  quantity: z.number(),
+  txHash: z.string(),
+  blockNumber: z.number(),
+  onchainHash: z.string(),
+  receiptUrl: z.string(),
+});
+
+export const TokenBridgeRequestSchema = z.object({
+  classId: z.string().min(1),
+  fromChainId: z.string().min(1),
+  toChainId: z.string().min(1),
+  fromContract: AddressSchema,
+  toContract: AddressSchema,
+  quantity: z.number().int().positive(),
+  tokenId: z.string().optional(),
+});
+
+export const TokenBridgeResponseSchema = z.object({
+  domain: z.literal('token'),
+  sourceOfRecord: z.literal('chain'),
+  adapterTxId: CuidSchema,
+  classId: z.string(),
+  quantity: z.number(),
+  txHash: z.string(),
+  blockNumber: z.number(),
+  onchainHash: z.string(),
+  receiptUrl: z.string(),
+});
+
+// Class mapping schemas
+export const ClassMappingRequestSchema = z.object({
+  classId: z.string().min(1),
+  chainId: z.string().min(1),
+  contractAddress: AddressSchema,
+  tokenId: z.string().optional(),
+});
+
+export const ClassMappingResponseSchema = z.object({
+  domain: z.literal('credit'),
+  sourceOfRecord: z.literal('registry'),
+  classId: z.string(),
+  chainId: z.string(),
+  contractAddress: z.string(),
+  tokenId: z.string().optional(),
+  createdAt: z.string().datetime(),
+});
+
+export type TokenMintRequest = z.infer<typeof TokenMintRequestSchema>;
+export type TokenMintResponse = z.infer<typeof TokenMintResponseSchema>;
+export type TokenBurnRequest = z.infer<typeof TokenBurnRequestSchema>;
+export type TokenBurnResponse = z.infer<typeof TokenBurnResponseSchema>;
+export type TokenBridgeRequest = z.infer<typeof TokenBridgeRequestSchema>;
+export type TokenBridgeResponse = z.infer<typeof TokenBridgeResponseSchema>;
+export type ClassMappingRequest = z.infer<typeof ClassMappingRequestSchema>;
+export type ClassMappingResponse = z.infer<typeof ClassMappingResponseSchema>;
 
 // Transfer schemas (optional)
 export const TransferRequestSchema = z.object({

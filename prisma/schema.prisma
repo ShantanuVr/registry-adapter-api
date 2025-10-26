@@ -83,3 +83,15 @@ model AuditEvent {
 
   @@map("audit_events")
 }
+
+model TokenMap {
+  id              String    @id @default(cuid())
+  classId         String    @unique
+  chainId         String    @map("chain_id")
+  contractAddress String    @map("contract_address")
+  tokenId         String    @map("token_id")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("token_maps")
+}

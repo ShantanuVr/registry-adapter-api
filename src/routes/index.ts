@@ -82,11 +82,13 @@ export const registerRoutes = async (fastify: FastifyInstance): Promise<void> =>
     return reply.type('text/plain').send(metrics);
   });
 
-  // Issuance finalization
-  fastify.post('/v1/issuance/finalize', {
+  // ===== CREDIT DOMAIN ENDPOINTS (Registry-facing) =====
+  
+  // Issuance finalization (Registry webhook)
+  fastify.post('/v1/credit/issuance/finalize', {
     schema: {
-      description: 'Finalize issuance and mint credits on-chain',
-      tags: ['Issuance'],
+      description: 'Finalize issuance and mint credits on-chain (Registry webhook)',
+      tags: ['Credit Domain'],
       headers: {
         type: 'object',
         properties: {
@@ -112,6 +114,8 @@ export const registerRoutes = async (fastify: FastifyInstance): Promise<void> =>
         201: {
           type: 'object',
           properties: {
+            domain: { type: 'string', enum: ['credit'] },
+            sourceOfRecord: { type: 'string', enum: ['registry'] },
             adapterTxId: { type: 'string' },
             classId: { type: 'string' },
             quantity: { type: 'number' },
@@ -141,19 +145,26 @@ export const registerRoutes = async (fastify: FastifyInstance): Promise<void> =>
     // Process issuance
     const result = await finalizeIssuance(request.body, authContext);
     
+    // Add domain and source of record
+    const response = {
+      domain: 'credit',
+      sourceOfRecord: 'registry',
+      ...result
+    };
+    
     // Store idempotency
     if (request.idempotencyKey && request.bodyHash) {
       // This would be handled by the idempotency middleware
     }
 
-    return reply.status(201).send(result);
+    return reply.status(201).send(response);
   });
 
-  // Credit retirement
-  fastify.post('/v1/retire', {
+  // Credit retirement (Registry webhook)
+  fastify.post('/v1/credit/retire', {
     schema: {
-      description: 'Retire/burn credits on-chain',
-      tags: ['Retirement'],
+      description: 'Retire/burn credits on-chain (Registry webhook)',
+      tags: ['Credit Domain'],
       headers: {
         type: 'object',
         properties: {
@@ -177,6 +188,8 @@ export const registerRoutes = async (fastify: FastifyInstance): Promise<void> =>
         201: {
           type: 'object',
           properties: {
+            domain: { type: 'string', enum: ['credit'] },
+            sourceOfRecord: { type: 'string', enum: ['registry'] },
             adapterTxId: { type: 'string' },
             classId: { type: 'string' },
             quantity: { type: 'number' },
@@ -206,8 +219,229 @@ export const registerRoutes = async (fastify: FastifyInstance): Promise<void> =>
     // Process retirement
     const result = await retireCredits(request.body, authContext);
     
-    return reply.status(201).send(result);
+    // Add domain and source of record
+    const response = {
+      domain: 'credit',
+      sourceOfRecord: 'registry',
+      ...result
+    };
+    
+    return reply.status(201).send(response);
   });
+
+  // ===== TOKEN DOMAIN ENDPOINTS (Internal/Admin only) =====
+  
+  // Token minting (Admin CLI only)
+  fastify.post('/v1/token/mint', {
+    schema: {
+      description: 'Mint tokens on-chain (Admin CLI only)',
+      tags: ['Token Domain'],
+      headers: {
+        type: 'object',
+        properties: {
+          'idempotency-key': { type: 'string', format: 'uuid' },
+        },
+        required: ['idempotency-key'],
+      },
+      body: {
+        type: 'object',
+        properties: {
+          classId: { type: 'string' },
+          to: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          quantity: { type: 'number', minimum: 1 },
+          chainId: { type: 'string' },
+          contractAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          tokenId: { type: 'string' },
+        },
+        required: ['classId', 'to', 'quantity', 'chainId', 'contractAddress'],
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            domain: { type: 'string', enum: ['token'] },
+            sourceOfRecord: { type: 'string', enum: ['chain'] },
+            adapterTxId: { type: 'string' },
+            classId: { type: 'string' },
+            quantity: { type: 'number' },
+            txHash: { type: 'string' },
+            blockNumber: { type: 'number' },
+            onchainHash: { type: 'string' },
+            receiptUrl: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request: FastifyRequest<{ Body: any }>, reply) => {
+    const authContext = request.authContext!;
+    
+    // Only allow ADMIN role for token operations
+    if (authContext.role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Token operations are restricted to ADMIN role only',
+        },
+      });
+    }
+    
+    // Process token minting
+    const result = await finalizeIssuance(request.body, authContext);
+    
+    // Add domain and source of record
+    const response = {
+      domain: 'token',
+      sourceOfRecord: 'chain',
+      ...result
+    };
+    
+    return reply.status(201).send(response);
+  });
+
+  // Token burning (Admin CLI only)
+  fastify.post('/v1/token/burn', {
+    schema: {
+      description: 'Burn tokens on-chain (Admin CLI only)',
+      tags: ['Token Domain'],
+      headers: {
+        type: 'object',
+        properties: {
+          'idempotency-key': { type: 'string', format: 'uuid' },
+        },
+        required: ['idempotency-key'],
+      },
+      body: {
+        type: 'object',
+        properties: {
+          classId: { type: 'string' },
+          from: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          quantity: { type: 'number', minimum: 1 },
+          chainId: { type: 'string' },
+          contractAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          tokenId: { type: 'string' },
+        },
+        required: ['classId', 'from', 'quantity', 'chainId', 'contractAddress'],
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            domain: { type: 'string', enum: ['token'] },
+            sourceOfRecord: { type: 'string', enum: ['chain'] },
+            adapterTxId: { type: 'string' },
+            classId: { type: 'string' },
+            quantity: { type: 'number' },
+            txHash: { type: 'string' },
+            blockNumber: { type: 'number' },
+            onchainHash: { type: 'string' },
+            receiptUrl: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request: FastifyRequest<{ Body: any }>, reply) => {
+    const authContext = request.authContext!;
+    
+    // Only allow ADMIN role for token operations
+    if (authContext.role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Token operations are restricted to ADMIN role only',
+        },
+      });
+    }
+    
+    // Process token burning
+    const result = await retireCredits(request.body, authContext);
+    
+    // Add domain and source of record
+    const response = {
+      domain: 'token',
+      sourceOfRecord: 'chain',
+      ...result
+    };
+    
+    return reply.status(201).send(response);
+  });
+
+  // Token bridging (Admin CLI only)
+  fastify.post('/v1/token/bridge', {
+    schema: {
+      description: 'Bridge tokens between chains (Admin CLI only)',
+      tags: ['Token Domain'],
+      headers: {
+        type: 'object',
+        properties: {
+          'idempotency-key': { type: 'string', format: 'uuid' },
+        },
+        required: ['idempotency-key'],
+      },
+      body: {
+        type: 'object',
+        properties: {
+          classId: { type: 'string' },
+          fromChainId: { type: 'string' },
+          toChainId: { type: 'string' },
+          fromContract: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          toContract: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          quantity: { type: 'number', minimum: 1 },
+          tokenId: { type: 'string' },
+        },
+        required: ['classId', 'fromChainId', 'toChainId', 'fromContract', 'toContract', 'quantity'],
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            domain: { type: 'string', enum: ['token'] },
+            sourceOfRecord: { type: 'string', enum: ['chain'] },
+            adapterTxId: { type: 'string' },
+            classId: { type: 'string' },
+            quantity: { type: 'number' },
+            txHash: { type: 'string' },
+            blockNumber: { type: 'number' },
+            onchainHash: { type: 'string' },
+            receiptUrl: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request: FastifyRequest<{ Body: any }>, reply) => {
+    const authContext = request.authContext!;
+    
+    // Only allow ADMIN role for token operations
+    if (authContext.role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Token operations are restricted to ADMIN role only',
+        },
+      });
+    }
+    
+    // Process token bridging (mock implementation)
+    const result = {
+      adapterTxId: 'c' + Math.random().toString(36).substr(2, 24),
+      classId: request.body.classId,
+      quantity: request.body.quantity,
+      txHash: '0x' + Math.random().toString(16).substr(2, 64),
+      blockNumber: Math.floor(Math.random() * 1000000),
+      onchainHash: '0x' + Math.random().toString(16).substr(2, 64),
+      receiptUrl: `/v1/receipts/c${Math.random().toString(36).substr(2, 24)}`,
+    };
+    
+    // Add domain and source of record
+    const response = {
+      domain: 'token',
+      sourceOfRecord: 'chain',
+      ...result
+    };
+    
+    return reply.status(201).send(response);
+  });
+
+  // ===== SHARED ENDPOINTS =====
 
   // Evidence anchoring
   fastify.post('/v1/anchor', {
@@ -307,6 +541,124 @@ export const registerRoutes = async (fastify: FastifyInstance): Promise<void> =>
     const { adapterTxId } = request.params;
     const receipt = await getReceipt(adapterTxId);
     return reply.send(receipt);
+  });
+
+  // Class mapping management (Admin CLI only)
+  fastify.post('/v1/classes/map', {
+    schema: {
+      description: 'Create deterministic mapping classId -> {chainId, contract, tokenId} (Admin CLI only)',
+      tags: ['Classes'],
+      headers: {
+        type: 'object',
+        properties: {
+          'idempotency-key': { type: 'string', format: 'uuid' },
+        },
+        required: ['idempotency-key'],
+      },
+      body: {
+        type: 'object',
+        properties: {
+          classId: { type: 'string' },
+          chainId: { type: 'string' },
+          contractAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          tokenId: { type: 'string' },
+        },
+        required: ['classId', 'chainId', 'contractAddress'],
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            domain: { type: 'string', enum: ['credit'] },
+            sourceOfRecord: { type: 'string', enum: ['registry'] },
+            classId: { type: 'string' },
+            chainId: { type: 'string' },
+            contractAddress: { type: 'string' },
+            tokenId: { type: 'string' },
+            createdAt: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request: FastifyRequest<{ Body: any }>, reply) => {
+    const authContext = request.authContext!;
+    
+    // Only allow ADMIN role for mapping operations
+    if (authContext.role !== 'ADMIN') {
+      return reply.status(403).send({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Class mapping operations are restricted to ADMIN role only',
+        },
+      });
+    }
+    
+    // Store mapping in database (mock implementation)
+    const mapping = {
+      classId: request.body.classId,
+      chainId: request.body.chainId,
+      contractAddress: request.body.contractAddress,
+      tokenId: request.body.tokenId,
+      createdAt: new Date().toISOString(),
+    };
+    
+    // Add domain and source of record
+    const response = {
+      domain: 'credit',
+      sourceOfRecord: 'registry',
+      ...mapping
+    };
+    
+    return reply.status(201).send(response);
+  });
+
+  // Get class mapping
+  fastify.get('/v1/classes/map/:classId', {
+    schema: {
+      description: 'Get deterministic mapping for classId',
+      tags: ['Classes'],
+      params: {
+        type: 'object',
+        properties: {
+          classId: { type: 'string' },
+        },
+        required: ['classId'],
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            domain: { type: 'string', enum: ['credit'] },
+            sourceOfRecord: { type: 'string', enum: ['registry'] },
+            classId: { type: 'string' },
+            chainId: { type: 'string' },
+            contractAddress: { type: 'string' },
+            tokenId: { type: 'string' },
+            createdAt: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request: FastifyRequest<{ Params: { classId: string } }>, reply) => {
+    const { classId } = request.params;
+    
+    // Get mapping from database (mock implementation)
+    const mapping = {
+      classId,
+      chainId: '137', // Polygon mainnet
+      contractAddress: '0x' + Math.random().toString(16).substr(2, 40),
+      tokenId: Math.random().toString(),
+      createdAt: new Date().toISOString(),
+    };
+    
+    // Add domain and source of record
+    const response = {
+      domain: 'credit',
+      sourceOfRecord: 'registry',
+      ...mapping
+    };
+    
+    return reply.send(response);
   });
 
   // Class resolution

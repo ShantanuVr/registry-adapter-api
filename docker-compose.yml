@@ -63,9 +63,8 @@ services:
       sh -c "
         echo 'Waiting for database...' &&
         sleep 5 &&
-        pnpm db:migrate &&
-        pnpm db:seed &&
-        pnpm dev
+        pnpm prisma migrate deploy &&
+        pnpm start
       "
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:4100/health || exit 1"]

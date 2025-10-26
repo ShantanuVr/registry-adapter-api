@@ -19,7 +19,12 @@
     "typecheck": "tsc --noEmit",
     "openapi": "tsx scripts/generate-openapi.ts"
   },
-  "keywords": ["carbon-credit", "registry", "blockchain", "adapter"],
+  "keywords": [
+    "carbon-credit",
+    "registry",
+    "blockchain",
+    "adapter"
+  ],
   "author": "Carbon Credit Registry Team",
   "license": "MIT",
   "dependencies": {
@@ -29,10 +34,11 @@
     "@fastify/swagger": "^8.12.0",
     "@fastify/swagger-ui": "^2.1.0",
     "@prisma/client": "^5.7.1",
+    "dotenv": "^16.3.1",
     "ethers": "^6.8.1",
     "fastify": "^4.24.3",
     "jsonwebtoken": "^9.0.2",
-    "jwks-client": "^3.0.1",
+    "jwks-client": "^2.1.0",
     "pino": "^8.17.2",
     "pino-pretty": "^10.3.1",
     "prom-client": "^15.0.0",

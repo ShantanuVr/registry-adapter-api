@@ -1,14 +1,15 @@
 import jwt from 'jsonwebtoken';
 import jwksClient from 'jwks-client';
 import { FastifyRequest } from 'fastify';
-import { appConfig } from '../lib/config.js';
-import { JWTClaimsSchema, JWTClaims } from '../lib/schemas.js';
-import { AppError, ErrorCode } from '../lib/errors.js';
-import logger from '../lib/logger.js';
+import { appConfig } from '../../lib/config';
+import { JWTClaimsSchema, JWTClaims } from '../../lib/schemas';
+import { AppError, ErrorCode } from '../../lib/errors';
+import logger from '../../lib/logger';
 
 export interface AuthContext {
   claims: JWTClaims;
   traceId: string;
+  role?: string;
 }
 
 // JWKS client for JWT verification
@@ -22,7 +23,7 @@ const client = jwksClient({
 
 const getKey = (header: jwt.JwtHeader): Promise<string> => {
   return new Promise((resolve, reject) => {
-    client.getSigningKey(header.kid, (err, key) => {
+    client.getSigningKey(header.kid!, (err: any, key: any) => {
       if (err) {
         reject(err);
         return;
@@ -43,7 +44,7 @@ export const verifyJWT = async (token: string): Promise<JWTClaims> => {
       algorithms: ['RS256'],
       issuer: appConfig.JWT_ISSUER,
       audience: 'registry-adapter-api',
-    }) as jwt.JwtPayload;
+    }) as unknown as jwt.JwtPayload;
 
     const claims = JWTClaimsSchema.parse(decoded);
     

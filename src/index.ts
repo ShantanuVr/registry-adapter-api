@@ -4,15 +4,15 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { appConfig } from './lib/config.js';
-import logger from './lib/logger.js';
-import { connectDatabase, disconnectDatabase } from './lib/database.js';
-import { initializeChainProvider } from './lib/ethers.js';
-import { registerRoutes } from './routes/index.js';
+import { appConfig } from './lib/config';
+import logger from './lib/logger';
+import { connectDatabase, disconnectDatabase } from './lib/database';
+import { initializeChainProvider } from './lib/ethers';
+import { registerRoutes } from './routes/index';
 
 const buildApp = async () => {
   const fastify = Fastify({
-    logger: logger.child({ service: 'registry-adapter-api' }),
+    logger: true,
     genReqId: () => crypto.randomUUID(),
   });
 
@@ -88,16 +88,16 @@ const buildApp = async () => {
       deepLinking: false,
     },
     uiHooks: {
-      onRequest: function (request, reply, next) {
+      onRequest: function (_request, _reply, next) {
         next();
       },
-      preHandler: function (request, reply, next) {
+      preHandler: function (_request, _reply, next) {
         next();
       },
     },
     staticCSP: true,
     transformStaticCSP: (header) => header,
-    transformSpecification: (swaggerObject, request, reply) => {
+    transformSpecification: (swaggerObject, _request, _reply) => {
       return swaggerObject;
     },
     transformSpecificationClone: true,
@@ -156,5 +156,10 @@ export const start = async () => {
     process.exit(1);
   }
 };
+
+// Start the server if this is the main module
+if (require.main === module || import.meta.url === `file://${process.argv[1]}`) {
+  start();
+}
 
 export default buildApp;

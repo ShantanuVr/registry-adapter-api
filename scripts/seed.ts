@@ -185,6 +185,38 @@ async function seed() {
 
     logger.info(`Seeded ${auditEvents.length} audit events`);
 
+    // Seed token mappings
+    const tokenMappings = [
+      {
+        classId: '0x1001',
+        chainId: '137',
+        contractAddress: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+        tokenId: 'token_1001',
+      },
+      {
+        classId: '0x1002',
+        chainId: '137',
+        contractAddress: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+        tokenId: 'token_1002',
+      },
+      {
+        classId: '0x1003',
+        chainId: '137',
+        contractAddress: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+        tokenId: 'token_1003',
+      },
+    ];
+
+    for (const mapping of tokenMappings) {
+      await prisma.tokenMap.upsert({
+        where: { classId: mapping.classId },
+        update: {},
+        create: mapping,
+      });
+    }
+
+    logger.info(`Seeded ${tokenMappings.length} token mappings`);
+
     logger.info('Database seed completed successfully');
   } catch (error) {
     logger.error({ error }, 'Database seed failed');
