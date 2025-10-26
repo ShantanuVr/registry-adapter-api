@@ -1,14 +1,16 @@
 import { ethers } from 'ethers';
 import { appConfig } from './config.js';
 
-// ERC1155 ABI for CarbonCredit1155 contract
+// ERC1155 ABI for CarbonCredit1155 contract - Updated to match actual contract signature
 export const ERC1155_ABI = [
-  'function mint(address to, uint256 id, uint256 amount, bytes calldata data) external',
-  'function retire(uint256 id, uint256 amount, bytes calldata data) external',
+  'function mint(uint256 classId, address to, uint256 amount, (bytes32,uint64,uint64,bytes32,bytes32,string,bytes32,string))',
+  'function retire(uint256 classId, address from, uint256 amount, (bytes32,bytes32,bytes32,string,bytes32,string))',
   'function balanceOf(address account, uint256 id) external view returns (uint256)',
-  'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data) external',
-  'event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)',
-  'event Retirement(address indexed account, uint256 indexed id, uint256 amount, bytes data)',
+  'function totalIssued(uint256 classId) external view returns (uint256)',
+  'function totalRetired(uint256 classId) external view returns (uint256)',
+  'function getClassInfo(uint256 classId) external view returns ((bytes32,uint64,uint64))',
+  'event Issued(address indexed issuer, uint256 indexed classId, address indexed to, uint256 amount, (bytes32,uint64,uint64,bytes32,bytes32,string,bytes32,string))',
+  'event Retired(address indexed operator, uint256 indexed classId, address indexed from, uint256 amount, (bytes32,bytes32,bytes32,string,bytes32,string))',
 ] as const;
 
 // EvidenceAnchor ABI
@@ -23,12 +25,18 @@ export interface IssuanceData {
   vintageEnd: number;
   factorRefHash: string;
   issuanceEvidence: string;
+  offchainRef?: string;
+  originClassId?: string;
+  registryURI?: string;
 }
 
 export interface RetirementData {
   purposeHash: string;
   beneficiaryHash: string;
+  certificateHash?: string;
   offchainRef?: string;
+  originClassId?: string;
+  registryURI?: string;
 }
 
 export const createCarbonCreditContract = (provider: ethers.Provider) => {
@@ -47,33 +55,7 @@ export const createEvidenceAnchorContract = (provider: ethers.Provider) => {
   );
 };
 
-export const encodeIssuanceData = (data: IssuanceData): string => {
-  // Encode issuance data as bytes for contract call
-  const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-    ['bytes32', 'uint256', 'uint256', 'bytes32', 'bytes32'],
-    [
-      data.projectIdHash,
-      data.vintageStart,
-      data.vintageEnd,
-      data.factorRefHash,
-      data.issuanceEvidence,
-    ]
-  );
-  return encoded;
-};
-
-export const encodeRetirementData = (data: RetirementData): string => {
-  // Encode retirement data as bytes for contract call
-  const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-    ['bytes32', 'bytes32', 'string'],
-    [
-      data.purposeHash,
-      data.beneficiaryHash,
-      data.offchainRef || '',
-    ]
-  );
-  return encoded;
-};
+// Note: We now pass structs directly to contract functions instead of encoding
 
 export const hashProjectId = (projectId: string): string => {
   return ethers.keccak256(ethers.toUtf8Bytes(projectId));

@@ -6,7 +6,6 @@ import { AuthContext } from '../auth/index.js';
 import { getChainProvider, sendTransaction } from '../../lib/ethers.js';
 import { 
   createCarbonCreditContract, 
-  encodeIssuanceData, 
   hashProjectId, 
   hashFactorRef, 
   createMerkleRoot,
@@ -87,14 +86,28 @@ export const finalizeIssuance = async (
       const { provider, signer } = getChainProvider();
       const contract = createCarbonCreditContract(provider);
       
-      const encodedData = encodeIssuanceData(issuanceData);
       const signerAddress = await signer.getAddress();
       
+      // Convert numeric classId to string for consistency
+      const classIdNum = parseInt(classId);
+      
+      // Create proper struct for contract call
+      const issuanceStruct = {
+        projectIdHash: issuanceData.projectIdHash,
+        vintageStart: issuanceData.vintageStart,
+        vintageEnd: issuanceData.vintageEnd,
+        factorRefHash: issuanceData.factorRefHash,
+        issuanceEvidence: issuanceData.issuanceEvidence,
+        offchainRef: request.factorRef || '',
+        originClassId: ethers.zeroPadValue(ethers.toUtf8Bytes(classId), 32),
+        registryURI: `${appConfig.REGISTRY_URL}/issuances/${request.issuanceId}`,
+      };
+      
       const tx = await contract.mint.populateTransaction(
-        signerAddress, // to address (registry treasury)
-        classId,
+        classIdNum,           // classId FIRST (correct order)
+        signerAddress,         // to address (registry treasury) SECOND
         request.quantity,
-        encodedData
+        issuanceStruct         // Struct with all 8 fields
       );
 
       const result = await sendTransaction(tx);
