@@ -11,7 +11,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "test": "vitest",
+    "test": "vitest run",
     "test:e2e": "vitest --config vitest.e2e.config.ts",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src --ext .ts",
